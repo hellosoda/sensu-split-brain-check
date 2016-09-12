@@ -79,23 +79,23 @@ function who_sees_node() {
 
 
 declare -A cluster
-all_equals=true
+all_equals="yes"
 
 for ip in $(echo $NODES| tr " " "\n"); do
   current=$(who_sees_node $ip)
   cluster[$ip]=$current
   if [ -n "$last_checked" -a "$last_checked" != "$current" ]; then
-    all_equals=false
+    all_equals="nope"
   fi
   last_checked=$current
 done
 
-if $all_equals; then
+if [ -n "$last_checked" -a "$all_equals" = "yes" ]; then
   echo "Cluster OK"
   exit 0;
 else
   #print cluster state, who sees who
-  for ip in "${!cluster[@]}"; do echo $ip "-->" ${cluster[$ip]}; done
+  for ip in "${!cluster[@]}"; do echo $ip "-->" ${cluster[$ip]:-"nobody"}; done
   exit 2; #critical
 fi
 
