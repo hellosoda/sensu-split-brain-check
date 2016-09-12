@@ -5,7 +5,10 @@
 #
 # usage:
 # ./check_brain.sh 172.17.0.8 172.17.0.9 172.17.0.10 172.17.0.11
-
+# or
+# AKKA_CLUSTER_NODES="172.17.0.8 172.17.0.9 172.17.0.10 172.17.0.11" ./check_brain.sh
+#
+#
 # Exit status code indicates state
 #
 #    0 indicates OK
@@ -20,13 +23,15 @@
 AKKA_HOME=${AKKA_HOME:-/opt/akka-2.4.7/}
 JMX_PORT=${JMX_PORT:-9999}
 
-if [ -z "$1" ]
+if [ -z "$1" -a -z "$AKKA_CLUSTER_NODES" ]
   then
     echo "Usage: $0 172.17.0.8 172.17.0.9 172.17.0.10 172.17.0.11"
+    echo "or"
+    echo "AKKA_CLUSTER_NODES=\"172.17.0.8 172.17.0.9 172.17.0.10 172.17.0.11\" $0"
     exit 13
 fi
 
-NODES="$@"
+NODES="${AKKA_CLUSTER_NODES:-"$@"}"
 
 # http://www.linuxjournal.com/content/validating-ip-address-bash-script
 #
@@ -91,7 +96,7 @@ if $all_equals; then
 else
   #print cluster state, who sees who
   for ip in "${!cluster[@]}"; do echo $ip "-->" ${cluster[$ip]}; done
-  exit 3; #critical
+  exit 2; #critical
 fi
 
 
