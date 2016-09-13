@@ -1,13 +1,6 @@
 #!/bin/bash
-
 #
 # sensu check for split brain syndrome in akka cluster
-#
-# usage:
-# ./check_brain.sh 172.17.0.8 172.17.0.9 172.17.0.10 172.17.0.11
-# or
-# AKKA_CLUSTER_NODES="172.17.0.8 172.17.0.9 172.17.0.10 172.17.0.11" ./check_brain.sh
-#
 #
 # Exit status code indicates state
 #
@@ -21,69 +14,44 @@
 # brain is splitted when any of nodes sees different cluster state than others
 
 AKKA_HOME=${AKKA_HOME:-/opt/akka-2.4.7/}
-JMX_PORT=${JMX_PORT:-9999}
 
-if [ -z "$1" -a -z "$AKKA_CLUSTER_NODES" ]
-  then
-    echo "Usage: $0 172.17.0.8 172.17.0.9 172.17.0.10 172.17.0.11"
-    echo "or"
-    echo "AKKA_CLUSTER_NODES=\"172.17.0.8 172.17.0.9 172.17.0.10 172.17.0.11\" $0"
-    exit 13
-fi
+function nodes() {
+  local services=("discovery-api-service" "discovery-plugins-service")
 
-NODES="${AKKA_CLUSTER_NODES:-"$@"}"
-
-# http://www.linuxjournal.com/content/validating-ip-address-bash-script
-#
-# Test an IP address for validity:
-# Usage:
-#      valid_ip IP_ADDRESS
-#      if [[ $? -eq 0 ]]; then echo good; else echo bad; fi
-#   OR
-#      if valid_ip IP_ADDRESS; then echo good; else echo bad; fi
-#
-function valid_ip()
-{
-    local  ip=$1
-    local  stat=1
-
-    if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-        OIFS=$IFS
-        IFS='.'
-        ip=($ip)
-        IFS=$OIFS
-        [[ ${ip[0]} -le 255 && ${ip[1]} -le 255 \
-            && ${ip[2]} -le 255 && ${ip[3]} -le 255 ]]
-        stat=$?
+  for service in "${services[@]}"
+  do
+    local task=$(aws ecs list-tasks --cluster discovery --service-name $service | jq -r '.taskArns[0]')
+    if [[ -z "$task" ]]; then
+        continue
     fi
-    return $stat
+    local taskdesc=$(aws ecs describe-tasks --cluster discovery --tasks $task)
+    local cont=$(echo $taskdesc | jq -r '.tasks[0].containerInstanceArn')
+    local jmx_port=$(echo $taskdesc | jq -r '.tasks[0].containers[0].networkBindings | map ( .hostPort | select( . > 2000) )[0] ')
+    local inst=$(aws ecs describe-container-instances --cluster discovery --container-instances $cont | jq -r '.containerInstances[0].ec2InstanceId')
+    local ip=$(aws ec2 describe-instances --instance-ids $inst | jq -r '.Reservations[0].Instances[0].PrivateIpAddress')
+    echo $ip:$jmx_port
+  done
 }
 
-
-for ip in $(echo $NODES| tr " " "\n"); do
-  if ! valid_ip $ip; then
-    echo "Incorrent ip:" $ip
-    exit 14
-  fi
-done
-
-
+NODES=$(nodes)
 
 # list of nodes visible from node
 # e.g
-# who_sees_node "172.17.0.8" returns "akka.tcp://application@172.17.0.10:2551 akka.tcp://application@172.17.0.8:2551"
-function who_sees_node() {
-  local ip=$1
-  $AKKA_HOME/bin/akka-cluster $ip $JMX_PORT cluster-status | tail -n +2 | jq -r '.members[] | .address' -  | sort | uniq
+# members "172.17.0.8:9999" returns "akka.tcp://application@172.17.0.10:2551 akka.tcp://application@172.17.0.8:2551"
+function members() {
+  local ip=$(echo $1 | cut -f1 -d:)
+  local jmx_port=$(echo $1 | cut -f2 -d:)
+  local cluster_status=$($AKKA_HOME/bin/akka-cluster $ip $jmx_port cluster-status | tail -n +2)
+  echo $cluster_status | jq -r '.members[] | .address' -  | sort | uniq
 }
 
 
 declare -A cluster
 all_equals="yes"
 
-for ip in $(echo $NODES| tr " " "\n"); do
-  current=$(who_sees_node $ip)
-  cluster[$ip]=$current
+for address in $(echo $NODES| tr " " "\n"); do
+  current=$(members $address)
+  cluster[$address]=$current
   if [ -n "$last_checked" -a "$last_checked" != "$current" ]; then
     all_equals="nope"
   fi
