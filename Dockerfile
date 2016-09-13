@@ -15,11 +15,10 @@ RUN apt-get update && \
 # Update PATH to include the embedded Ruby shipped with Sensu
 ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/sensu/embedded/bin:/etc/sensu/plugins
 
-RUN apt-get update && apt-get install -y vim jq bsdtar awscli
+RUN apt-get update && apt-get install -y vim jq bsdtar python2.7
 
 RUN curl -L http://downloads.typesafe.com/akka/akka_2.11-2.4.7.zip | bsdtar -xvf - -C /opt/
 RUN chmod +x /opt/akka-2.4.7/bin/akka-cluster
-
 
 COPY check-brain.sh /etc/sensu/plugins/check-brain.sh
 RUN chmod +x /etc/sensu/plugins/check-brain.sh
@@ -30,6 +29,11 @@ RUN curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VE
     tar -C /usr/local/bin -xzvf - 
 
 COPY conf.d /etc/sensu/conf.d/
+
+#aws cli
+RUN curl -O https://bootstrap.pypa.io/get-pip.py
+RUN python2.7 get-pip.py
+RUN pip install awscli
 
 CMD ["sh", "-c", "exec /usr/local/bin/dockerize \
  -wait tcp://${RABBITMQ_HOST}:5672 \
