@@ -26,7 +26,7 @@ function nodes() {
     fi
     local taskdesc=$(aws ecs describe-tasks --cluster discovery --tasks $task)
     local cont=$(echo $taskdesc | jq -r '.tasks[0].containerInstanceArn')
-    local jmx_port=$(echo $taskdesc | jq -r '.tasks[0].containers[0].networkBindings | map ( .hostPort | select( . > 2000) )[0] ')
+    local jmx_port=$(echo $taskdesc | jq -r '.tasks[0].containers[0].networkBindings | map ( .hostPort | select( . > 9000) )[0] ')
     local inst=$(aws ecs describe-container-instances --cluster discovery --container-instances $cont | jq -r '.containerInstances[0].ec2InstanceId')
     local ip=$(aws ec2 describe-instances --instance-ids $inst | jq -r '.Reservations[0].Instances[0].PrivateIpAddress')
     echo $ip:$jmx_port
