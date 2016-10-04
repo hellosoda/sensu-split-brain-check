@@ -1,7 +1,8 @@
 {
   "rabbitmq":{
     "host":"{{ .Env.RABBITMQ_HOST }}",
-    "user":"{{ .Env.RABBITMQ_USER }}",
-    "password":"{{ .Env.RABBITMQ_PASS }}"
+    "user":"sensu",
+    "password":"{{ .Env.RABBITMQ_PASS }}",
+    "vhost":"/sensu"
   }
 }

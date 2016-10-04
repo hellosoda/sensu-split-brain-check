@@ -3,7 +3,7 @@
     "name":"{{.Env.SENSU_CLIENT_NAME}}",
     "address":"{{.Env.SENSU_CLIENT_NAME}}",
     "subscriptions":[
-      "CHECK_split_brain"
+      "{{.Env.SENSU_SUBSCRIPTION}}"
     ]
   }
 }
