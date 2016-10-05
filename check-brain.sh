@@ -20,8 +20,9 @@ function nodes() {
 
   for service in "${services[@]}"
   do
+    # TODO: Here's the assumption that only one instance of a service is running. But something must reveal a split.
     local task=$(aws ecs list-tasks --cluster $CLUSTER --service-name $service | jq -r '.taskArns[0]')
-    if [[ -z "$task" ]]; then
+    if [ "$task" = "null" ]; then
         continue
     fi
     local taskdesc=$(aws ecs describe-tasks --cluster $CLUSTER --tasks $task)
