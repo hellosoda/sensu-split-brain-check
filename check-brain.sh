@@ -20,17 +20,16 @@ function nodes() {
 
   for service in "${services[@]}"
   do
-    # TODO: Here's the assumption that only one instance of a service is running. But something must reveal a split.
-    local task=$(aws ecs list-tasks --cluster $CLUSTER --service-name $service | jq -r '.taskArns[0]')
-    if [ "$task" = "null" ]; then
-        continue
-    fi
-    local taskdesc=$(aws ecs describe-tasks --cluster $CLUSTER --tasks $task)
-    local cont=$(echo $taskdesc | jq -r '.tasks[0].containerInstanceArn')
-    local jmx_port=$(echo $taskdesc | jq -r '.tasks[0].containers[0].networkBindings | map (.hostPort | select(9500 < . and . < 9600) )[0] ')
-    local inst=$(aws ecs describe-container-instances --cluster $CLUSTER --container-instances $cont | jq -r '.containerInstances[0].ec2InstanceId')
-    local ip=$(aws ec2 describe-instances --instance-ids $inst | jq -r '.Reservations[0].Instances[0].PrivateIpAddress')
-    echo $ip:$jmx_port
+    read -r -a tasks <<< $(aws ecs list-tasks --cluster $CLUSTER --service-name $service | jq -r '.taskArns[]')
+    for task in "${tasks[@]}"
+    do
+      local taskdesc=$(aws ecs describe-tasks --cluster $CLUSTER --tasks $task)
+      local cont=$(echo $taskdesc | jq -r '.tasks[0].containerInstanceArn')
+      local jmx_port=$(echo $taskdesc | jq -r '.tasks[0].containers[0].networkBindings | map (.hostPort | select(9500 < . and . < 9600) )[0] ')
+      local inst=$(aws ecs describe-container-instances --cluster $CLUSTER --container-instances $cont | jq -r '.containerInstances[0].ec2InstanceId')
+      local ip=$(aws ec2 describe-instances --instance-ids $inst | jq -r '.Reservations[0].Instances[0].PrivateIpAddress')
+      echo $ip:$jmx_port
+    done
   done
 }
 
