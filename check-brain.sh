@@ -28,7 +28,8 @@ function nodes() {
       local jmx_port=$(echo $taskdesc | jq -r '.tasks[0].containers[0].networkBindings | map (.hostPort | select(9500 < . and . < 9600) )[0] ')
       local inst=$(aws ecs describe-container-instances --cluster $CLUSTER --container-instances $cont | jq -r '.containerInstances[0].ec2InstanceId')
       local ip=$(aws ec2 describe-instances --instance-ids $inst | jq -r '.Reservations[0].Instances[0].PrivateIpAddress')
-      [ ! "$jmx_port" = "null" ] && echo $ip:$jmx_port
+      # Under weird circumstances, perhaps when things are starting up, these can't be determined.
+      [ ! "$jmx_port" = "null" ] && [ ! "$ip" = "" ] && echo $ip:$jmx_port
     done
   done
 }
